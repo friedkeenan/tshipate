@@ -14,7 +14,7 @@ namespace tsh {
             Internal mask     = std::numeric_limits<Internal>::max();
 
             template<std::size_t N>
-            consteval BitPattern(const char (&literal_str)[N]) {
+            explicit consteval BitPattern(const char (&literal_str)[N]) {
                 const auto pattern = std::string_view(literal_str, N - 1);
 
                 auto bit = pattern.size() - std::ranges::count(pattern, IgnoreCharacter) - 1;

@@ -12,12 +12,12 @@ executable(meson.project_name(), sources,
     cpp_args  : [
         '-std=gnu++20',
 
-        '-fno-exceptions',
-        '-fno-rtti',
-        '-fconcepts-diagnostics-depth=2',
-
         '-Wall',
         '-Wextra',
         '-Werror',
+
+        '-fno-exceptions',
+        '-fno-rtti',
+        '-fconcepts-diagnostics-depth=2',
     ]
 )
