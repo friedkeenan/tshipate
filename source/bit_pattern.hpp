@@ -41,7 +41,7 @@ namespace tsh {
             }
 
             template<std::integral T>
-            ALWAYS_INLINE constexpr bool matches(const T value) {
+            ALWAYS_INLINE constexpr bool matches(const T value) const {
                 return (value & this->mask) == this->expected;
             }
     };

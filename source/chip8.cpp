@@ -1,9 +1,11 @@
+#include "common.hpp"
 #include "chip8.hpp"
+#include "instruction.hpp"
 #include "util.hpp"
 
 namespace tsh {
 
-    bool Chip8::LoadProgram(std::span<std::byte> data) {
+    bool Chip8::LoadProgram(std::span<const std::byte> data) {
         if (data.size() > ProgramSpace.Size()) {
             return false;
         }
@@ -49,7 +51,18 @@ namespace tsh {
     }
 
     bool Chip8::Tick() {
-        return false;
+        const auto op = Opcode(this->ReadRawOpcode());
+
+        const auto advance = Handler::Execute(*this, op);
+        if (!advance.has_value()) {
+            std::printf("Unhandled opcode: %04X\n", op.Get());
+
+            return false;
+        }
+
+        this->PC.Increment(*advance * sizeof(Opcode));
+
+        return true;
     }
 
     void Chip8::Loop() {

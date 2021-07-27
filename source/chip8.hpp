@@ -1,10 +1,12 @@
 #pragma once
 
 #include "common.hpp"
+#include "instruction.hpp"
 
 namespace tsh {
 
-    using Address = std::uint16_t;
+    using Address   = std::uint16_t;
+    using RawOpcode = std::uint16_t;
 
     class AddressSpace {
         public:
@@ -32,6 +34,8 @@ namespace tsh {
 
             ALWAYS_INLINE constexpr Register() = default;
 
+            ALWAYS_INLINE constexpr Register(Internal value) : value(value) { }
+
             [[nodiscard]]
             ALWAYS_INLINE constexpr const Internal &Get() const {
                 return this->value;
@@ -55,6 +59,15 @@ namespace tsh {
             static constexpr auto TotalSpace   = AddressSpace(0x0000, 0x1000);
             static constexpr auto ProgramSpace = AddressSpace(0x0200, 0x1000);
 
+            using Handler = InstructionHandler<
+                RET,
+                JP_Addr,
+                CALL,
+                LD_Byte,
+                ADD_Byte,
+                LD_Addr
+            >;
+
             std::array<std::byte, TotalSpace.Size()> memory = {};
 
             /* General purpose registers. */
@@ -64,15 +77,24 @@ namespace tsh {
             Register<Address> I;
 
             /* Program counter. */
-            Register<Address> PC;
+            Register<Address> PC = ProgramSpace.start;
 
-            ALWAYS_INLINE constexpr Chip8() = default;
+            std::stack<Address> stack;
+
+            ALWAYS_INLINE Chip8() = default;
 
             [[nodiscard]]
-            bool LoadProgram(std::span<std::byte> data);
+            bool LoadProgram(std::span<const std::byte> data);
 
             [[nodiscard]]
             bool LoadProgram(const std::string &path);
+
+            constexpr RawOpcode ReadRawOpcode() const {
+                return (
+                    (std::to_integer<RawOpcode>(this->memory[this->PC.Get()]) << 8) |
+                    (std::to_integer<RawOpcode>(this->memory[this->PC.Get() + 1]))
+                );
+            }
 
             [[nodiscard]]
             bool Tick();
