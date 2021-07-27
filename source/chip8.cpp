@@ -60,7 +60,7 @@ namespace tsh {
             return false;
         }
 
-        this->PC.Increment(*advance * sizeof(Opcode));
+        this->PC += (*advance * sizeof(Opcode));
 
         return true;
     }

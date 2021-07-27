@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.hpp"
-#include "bit_pattern.hpp"
+#include "nibble_pattern.hpp"
 
 namespace tsh {
 
@@ -41,7 +41,7 @@ namespace tsh {
             }
     };
 
-    static_assert(sizeof(Opcode) == sizeof(std::uint16_t));
+    static_assert(sizeof(Opcode) == sizeof(RawOpcode));
 
     template<typename T>
     concept Instruction = requires(Chip8 ch8, Opcode op) {
@@ -77,19 +77,24 @@ namespace tsh {
     #define INSTRUCTION_DECLARE(name, pattern)                           \
         class name {                                                     \
             public:                                                      \
-                static constexpr auto Pattern = BitPattern(pattern);     \
+                static constexpr auto Pattern = NibblePattern(pattern);  \
                 ALWAYS_INLINE static constexpr bool Compare(Opcode op) { \
                     return Pattern.matches(op.Get());                    \
                 }                                                        \
                 static std::int32_t Execute(Chip8 &ch8, Opcode op);      \
         }
 
-    INSTRUCTION_DECLARE(RET,        "0000'0000'1110'1110");
-    INSTRUCTION_DECLARE(JP_Addr,    "0001'xxxx'xxxx'xxxx");
-    INSTRUCTION_DECLARE(CALL,       "0010'xxxx'xxxx'xxxx");
-    INSTRUCTION_DECLARE(LD_Byte,    "0110'xxxx'xxxx'xxxx");
-    INSTRUCTION_DECLARE(ADD_Byte,   "0111'xxxx'xxxx'xxxx");
-    INSTRUCTION_DECLARE(LD_Addr,    "1010'xxxx'xxxx'xxxx");
+    INSTRUCTION_DECLARE(RET,      "00EE");
+    INSTRUCTION_DECLARE(JP_Addr,  "1xxx");
+    INSTRUCTION_DECLARE(CALL,     "2xxx");
+    INSTRUCTION_DECLARE(SE_Byte,  "3xxx");
+    INSTRUCTION_DECLARE(SNE_Byte, "4xxx");
+    INSTRUCTION_DECLARE(LD_Byte,  "6xxx");
+    INSTRUCTION_DECLARE(ADD_Byte, "7xxx");
+    INSTRUCTION_DECLARE(LD_Addr,  "Axxx");
+    INSTRUCTION_DECLARE(RND,      "Cxxx");
+    INSTRUCTION_DECLARE(DRW,      "Dxxx");
+    INSTRUCTION_DECLARE(ADD_I_V,  "Fx1E");
 
     #undef INSTRUCTION_DECLARE
 

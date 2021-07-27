@@ -23,6 +23,8 @@
 
 #endif
 
+#define BITSIZEOF(x) sizeof(x) * CHAR_BIT
+
 namespace tsh::impl {
 
     template<typename... Args>
