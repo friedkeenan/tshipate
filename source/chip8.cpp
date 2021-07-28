@@ -5,6 +5,38 @@
 
 namespace tsh {
 
+    bool Display::Render(sf::RenderWindow &window) const {
+        if (!window.isOpen()) {
+            return false;
+        }
+
+        /* Will be wholly changed by pollEvent call. */
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                return false;
+            }
+        }
+
+        window.clear();
+
+        auto rect = sf::RectangleShape(sf::Vector2f(PixelWidth, PixelWidth));
+        rect.setFillColor(sf::Color::White);
+
+        for (const auto x : std::views::iota(Coord{0}, Coord{DisplayWidth + 1})) {
+            for (const auto y : std::views::iota(Coord{0}, Coord{DisplayHeight + 1})) {
+                if (this->GetPixel(x, y)) {
+                    rect.setPosition(PixelWidth * x, PixelWidth * y);
+                    window.draw(rect);
+                }
+            }
+        }
+
+        window.display();
+
+        return true;
+    }
+
     bool Chip8::LoadProgram(const std::span<const std::byte> data) {
         if (data.size() > ProgramSpace.Size()) {
             return false;
@@ -66,6 +98,8 @@ namespace tsh {
     }
 
     void Chip8::Loop() {
+        auto window = this->display.OpenWindow();
+
         this->DT.StartThread([this](std::stop_token token) {
             static constexpr auto FrameDuration = std::chrono::duration<double>(1.0 / 60);
 
@@ -82,10 +116,16 @@ namespace tsh {
             if (!this->Tick()) {
                 break;
             }
+
+            if (!this->display.Render(window)) {
+                break;
+            }
         }
 
         this->DT.RequestStop();
         this->DT.Join();
+
+        window.close();
     }
 
 }

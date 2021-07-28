@@ -104,19 +104,25 @@ namespace tsh {
         NON_MOVEABLE(Display);
 
         public:
-            static constexpr std::size_t Width  = 64;
-            static constexpr std::size_t Height = 32;
+            using Coord = std::uint8_t;
+
+            static constexpr Coord DisplayWidth  = 64;
+            static constexpr Coord DisplayHeight = 32;
 
             /* Other widths are not supported. */
-            static_assert(Width == 64);
+            static_assert(DisplayWidth == 64);
 
-            using Coord = std::uint8_t;
+            static constexpr auto WindowWidth  = DisplayWidth  * 10;
+            static constexpr auto WindowHeight = DisplayHeight * 10;
+
+            static constexpr auto PixelWidth = static_cast<float>(WindowWidth) / DisplayWidth;
+
             using RowType = std::uint64_t;
 
             static constexpr auto FullRow = std::numeric_limits<RowType>::max();
 
             /* Bitmap representing on/off pixels. */
-            std::array<RowType, Height> buffer = {};
+            std::array<RowType, DisplayHeight> buffer = {};
 
             ALWAYS_INLINE constexpr Display() = default;
 
@@ -145,18 +151,20 @@ namespace tsh {
                 bool collide = false;
 
                 for (const auto &byte : data) {
-                    auto sprite_row = std::to_integer<std::uint64_t>(byte);
+                    auto sprite_row = std::to_integer<RowType>(byte);
 
                     /*
                         Coords cannot be negative so only need to
                         consider overflowing over the right and bottom.
                     */
-                    if (x + BITSIZEOF(std::byte) > Width) {
-                        const auto overflow_width = Width - x;
+                    if (x + BITSIZEOF(std::byte) > DisplayWidth) {
+                        const auto overflow_width = DisplayWidth - x;
                         const auto overflow       = (sprite_row & ~(FullRow << overflow_width));
 
                         sprite_row >>= overflow_width;
                         sprite_row  |= (overflow << (BITSIZEOF(RowType) - overflow_width));
+                    } else {
+                        sprite_row <<= DisplayWidth - x - BITSIZEOF(std::byte);
                     }
 
                     auto &current_row = this->buffer[y];
@@ -168,11 +176,17 @@ namespace tsh {
 
                     current_row = new_row;
 
-                    y = (y + 1) % Height;
+                    y = (y + 1) % DisplayHeight;
                 }
 
                 return collide;
             }
+
+            ALWAYS_INLINE sf::RenderWindow OpenWindow() const {
+                return sf::RenderWindow(sf::VideoMode(WindowWidth, WindowHeight), "tshipate");
+            }
+
+            bool Render(sf::RenderWindow &window) const;
     };
 
     enum class Key : std::uint8_t {
@@ -237,11 +251,13 @@ namespace tsh {
                 RET,
                 JP_Addr,
                 CALL,
-                SE_Byte,
-                SNE_Byte,
-                LD_Byte,
-                ADD_Byte,
-                LD_Addr,
+                SE_V_Byte,
+                SNE_V_Byte,
+                LD_V_Byte,
+                ADD_V_Byte,
+                LD_V_V,
+                SNE_V_V,
+                LD_I_Addr,
                 RND,
                 DRW,
                 SKP,

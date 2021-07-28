@@ -6,6 +6,7 @@ project('tshipate', 'cpp',
 
 dependencies = []
 
+dependencies += dependency('sfml-graphics')
 dependencies += meson.get_compiler('cpp').find_library('pthread')
 
 sources = []

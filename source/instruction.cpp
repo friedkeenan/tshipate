@@ -29,7 +29,7 @@ namespace tsh {
         return 0;
     }
 
-    INSTRUCTION_EXECUTE(SE_Byte) {
+    INSTRUCTION_EXECUTE(SE_V_Byte) {
         if (ch8.V[op.X()].Get() == op.Byte()) {
             return 2;
         }
@@ -37,7 +37,7 @@ namespace tsh {
         return 1;
     }
 
-    INSTRUCTION_EXECUTE(SNE_Byte) {
+    INSTRUCTION_EXECUTE(SNE_V_Byte) {
         if (ch8.V[op.X()].Get() != op.Byte()) {
             return 2;
         }
@@ -45,19 +45,33 @@ namespace tsh {
         return 1;
     }
 
-    INSTRUCTION_EXECUTE(LD_Byte) {
+    INSTRUCTION_EXECUTE(LD_V_Byte) {
         ch8.V[op.X()].Set(op.Byte());
 
         return 1;
     }
 
-    INSTRUCTION_EXECUTE(ADD_Byte) {
+    INSTRUCTION_EXECUTE(ADD_V_Byte) {
         ch8.V[op.X()].Increment(op.Byte());
 
         return 1;
     }
 
-    INSTRUCTION_EXECUTE(LD_Addr) {
+    INSTRUCTION_EXECUTE(LD_V_V) {
+        ch8.V[op.X()].Set(ch8.V[op.Y()].Get());
+
+        return 1;
+    }
+
+    INSTRUCTION_EXECUTE(SNE_V_V) {
+        if (ch8.V[op.X()].Get() != ch8.V[op.Y()].Get()) {
+            return 2;
+        }
+
+        return 1;
+    }
+
+    INSTRUCTION_EXECUTE(LD_I_Addr) {
         ch8.I.Set(op.Addr());
 
         return 1;

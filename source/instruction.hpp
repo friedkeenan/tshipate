@@ -84,21 +84,23 @@ namespace tsh {
                 static std::int32_t Execute(Chip8 &ch8, const Opcode op);      \
         }
 
-    INSTRUCTION_DECLARE(RET,      "00EE");
-    INSTRUCTION_DECLARE(JP_Addr,  "1xxx");
-    INSTRUCTION_DECLARE(CALL,     "2xxx");
-    INSTRUCTION_DECLARE(SE_Byte,  "3xxx");
-    INSTRUCTION_DECLARE(SNE_Byte, "4xxx");
-    INSTRUCTION_DECLARE(LD_Byte,  "6xxx");
-    INSTRUCTION_DECLARE(ADD_Byte, "7xxx");
-    INSTRUCTION_DECLARE(LD_Addr,  "Axxx");
-    INSTRUCTION_DECLARE(RND,      "Cxxx");
-    INSTRUCTION_DECLARE(DRW,      "Dxxx");
-    INSTRUCTION_DECLARE(SKP,      "Ex9E");
-    INSTRUCTION_DECLARE(SKNP,     "ExA1");
-    INSTRUCTION_DECLARE(LD_V_DT,  "Fx07");
-    INSTRUCTION_DECLARE(LD_DT_V,  "Fx15");
-    INSTRUCTION_DECLARE(ADD_I_V,  "Fx1E");
+    INSTRUCTION_DECLARE(RET,        "00EE");
+    INSTRUCTION_DECLARE(JP_Addr,    "1xxx");
+    INSTRUCTION_DECLARE(CALL,       "2xxx");
+    INSTRUCTION_DECLARE(SE_V_Byte,  "3xxx");
+    INSTRUCTION_DECLARE(SNE_V_Byte, "4xxx");
+    INSTRUCTION_DECLARE(LD_V_Byte,  "6xxx");
+    INSTRUCTION_DECLARE(ADD_V_Byte, "7xxx");
+    INSTRUCTION_DECLARE(LD_V_V,     "8xx0");
+    INSTRUCTION_DECLARE(SNE_V_V,    "9xx0");
+    INSTRUCTION_DECLARE(LD_I_Addr,  "Axxx");
+    INSTRUCTION_DECLARE(RND,        "Cxxx");
+    INSTRUCTION_DECLARE(DRW,        "Dxxx");
+    INSTRUCTION_DECLARE(SKP,        "Ex9E");
+    INSTRUCTION_DECLARE(SKNP,       "ExA1");
+    INSTRUCTION_DECLARE(LD_V_DT,    "Fx07");
+    INSTRUCTION_DECLARE(LD_DT_V,    "Fx15");
+    INSTRUCTION_DECLARE(ADD_I_V,    "Fx1E");
 
     #undef INSTRUCTION_DECLARE
 

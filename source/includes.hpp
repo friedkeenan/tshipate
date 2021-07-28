@@ -17,4 +17,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <concepts>
+
+#include <SFML/Graphics.hpp>
