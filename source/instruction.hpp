@@ -52,7 +52,7 @@ namespace tsh {
     template<Instruction Ins, typename... Ts>
     class InstructionHandler {
         public:
-            static constexpr std::optional<std::int32_t> Execute(Chip8 &ch8, Opcode op) {
+            static constexpr std::optional<std::int32_t> Execute(Chip8 &ch8, const Opcode op) {
                 if (Ins::Compare(op)) {
                     return Ins::Execute(ch8, op);
                 }
@@ -65,7 +65,7 @@ namespace tsh {
     template<Instruction Ins>
     class InstructionHandler<Ins> {
         public:
-            static constexpr std::optional<std::int32_t> Execute(Chip8 &ch8, Opcode op) {
+            static constexpr std::optional<std::int32_t> Execute(Chip8 &ch8, const Opcode op) {
                 if (Ins::Compare(op)) {
                     return Ins::Execute(ch8, op);
                 }
@@ -74,14 +74,14 @@ namespace tsh {
             }
     };
 
-    #define INSTRUCTION_DECLARE(name, pattern)                           \
-        class name {                                                     \
-            public:                                                      \
-                static constexpr auto Pattern = NibblePattern(pattern);  \
-                ALWAYS_INLINE static constexpr bool Compare(Opcode op) { \
-                    return Pattern.matches(op.Get());                    \
-                }                                                        \
-                static std::int32_t Execute(Chip8 &ch8, Opcode op);      \
+    #define INSTRUCTION_DECLARE(name, pattern)                                 \
+        class name {                                                           \
+            public:                                                            \
+                static constexpr auto Pattern = NibblePattern(pattern);        \
+                ALWAYS_INLINE static constexpr bool Compare(const Opcode op) { \
+                    return Pattern.matches(op.Get());                          \
+                }                                                              \
+                static std::int32_t Execute(Chip8 &ch8, const Opcode op);      \
         }
 
     INSTRUCTION_DECLARE(RET,      "00EE");
@@ -94,6 +94,10 @@ namespace tsh {
     INSTRUCTION_DECLARE(LD_Addr,  "Axxx");
     INSTRUCTION_DECLARE(RND,      "Cxxx");
     INSTRUCTION_DECLARE(DRW,      "Dxxx");
+    INSTRUCTION_DECLARE(SKP,      "Ex9E");
+    INSTRUCTION_DECLARE(SKNP,     "ExA1");
+    INSTRUCTION_DECLARE(LD_V_DT,  "Fx07");
+    INSTRUCTION_DECLARE(LD_DT_V,  "Fx15");
     INSTRUCTION_DECLARE(ADD_I_V,  "Fx1E");
 
     #undef INSTRUCTION_DECLARE

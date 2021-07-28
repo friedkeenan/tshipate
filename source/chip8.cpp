@@ -5,7 +5,7 @@
 
 namespace tsh {
 
-    bool Chip8::LoadProgram(std::span<const std::byte> data) {
+    bool Chip8::LoadProgram(const std::span<const std::byte> data) {
         if (data.size() > ProgramSpace.Size()) {
             return false;
         }
@@ -60,17 +60,32 @@ namespace tsh {
             return false;
         }
 
-        this->PC += (*advance * sizeof(Opcode));
+        this->PC.Increment(*advance * sizeof(Opcode));
 
         return true;
     }
 
     void Chip8::Loop() {
+        this->DT.StartThread([this](std::stop_token token) {
+            static constexpr auto FrameDuration = std::chrono::duration<double>(1.0 / 60);
+
+            while (!token.stop_requested()) {
+                if (this->DT.Get() != 0) {
+                    this->DT.Decrement(1);
+                }
+
+                std::this_thread::sleep_for(FrameDuration);
+            }
+        });
+
         while (true) {
             if (!this->Tick()) {
                 break;
             }
         }
+
+        this->DT.RequestStop();
+        this->DT.Join();
     }
 
 }

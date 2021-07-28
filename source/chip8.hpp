@@ -12,7 +12,7 @@ namespace tsh {
         public:
             Address start, end;
 
-            consteval AddressSpace(Address start, Address end) : start(start), end(end) {
+            consteval AddressSpace(const Address start, const Address end) : start(start), end(end) {
                 if (end < start) {
                     ERROR("End address must be after start address");
                 }
@@ -34,34 +34,68 @@ namespace tsh {
 
             ALWAYS_INLINE constexpr Register() = default;
 
-            ALWAYS_INLINE constexpr Register(Internal value) : value(value) { }
+            ALWAYS_INLINE constexpr Register(const Internal value) : value(value) { }
 
-            ALWAYS_INLINE constexpr auto operator <=>(const Internal rhs) const {
-                return this->value <=> rhs;
-            }
-
-            ALWAYS_INLINE constexpr Register &operator =(const Internal value) {
-                this->value = value;
-
-                return *this;
-            }
-
-            ALWAYS_INLINE constexpr operator Internal() const {
+            [[nodiscard]]
+            ALWAYS_INLINE constexpr Internal Get() const {
                 return this->value;
             }
 
-            template<std::integral T>
-            ALWAYS_INLINE constexpr Register &operator +=(T delta) {
-                this->value += delta;
-
-                return *this;
+            ALWAYS_INLINE constexpr void Set(const Internal value) {
+                this->value = value;
             }
 
             template<std::integral T>
-            ALWAYS_INLINE constexpr Register &operator +=(const Register<T> &delta) {
-                this->value += delta.value;
+            ALWAYS_INLINE constexpr void Increment(const T delta) {
+                this->value += delta;
+            }
 
-                return *this;
+            template<std::integral T>
+            ALWAYS_INLINE constexpr void Decrement(const T delta) {
+                this->value -= delta;
+            }
+    };
+
+    template<std::integral Internal>
+    class Timer {
+        NON_COPYABLE(Timer);
+        NON_MOVEABLE(Timer);
+
+        public:
+            std::atomic<Internal> value = {};
+
+            std::jthread thread;
+
+            ALWAYS_INLINE Timer() = default;
+
+            [[nodiscard]]
+            ALWAYS_INLINE Internal Get() {
+                return this->value.load();
+            }
+
+            ALWAYS_INLINE void Set(const Internal value) {
+                this->value.store(value);
+            }
+
+            ALWAYS_INLINE void Increment(const Internal delta) {
+                this->value += delta;
+            }
+
+            ALWAYS_INLINE void Decrement(const Internal delta) {
+                this->value -= delta;
+            }
+
+            template<typename... Args>
+            ALWAYS_INLINE void StartThread(Args &&... args) {
+                this->thread = std::jthread(std::forward<Args>(args)...);
+            }
+
+            ALWAYS_INLINE bool RequestStop() {
+                return this->thread.request_stop();
+            }
+
+            ALWAYS_INLINE void Join() {
+                this->thread.join();
             }
     };
 
@@ -86,11 +120,16 @@ namespace tsh {
 
             ALWAYS_INLINE constexpr Display() = default;
 
-            ALWAYS_INLINE constexpr bool GetPixel(Coord x, Coord y) const {
+            ALWAYS_INLINE constexpr void Clear() {
+                std::ranges::fill(this->buffer, RowType{});
+            }
+
+            [[nodiscard]]
+            ALWAYS_INLINE constexpr bool GetPixel(const Coord x, const Coord y) const {
                 return (this->buffer[y] & (RowType{1} << x)) != 0;
             }
 
-            ALWAYS_INLINE constexpr void SetPixel(Coord x, Coord y, bool on) {
+            ALWAYS_INLINE constexpr void SetPixel(const Coord x, const Coord y, const bool on) {
                 if (on) {
                     this->buffer[y] |=  (RowType{1} << x);
                 } else {
@@ -98,11 +137,11 @@ namespace tsh {
                 }
             }
 
-            ALWAYS_INLINE constexpr void TogglePixel(Coord x, Coord y) {
+            ALWAYS_INLINE constexpr void TogglePixel(const Coord x, const Coord y) {
                 this->buffer[y] ^= (RowType{1} << x);
             }
 
-            constexpr bool DrawSprite(Coord x, Coord y, std::span<const std::byte> data) {
+            constexpr bool DrawSprite(const Coord x, Coord y, const std::span<const std::byte> data) {
                 bool collide = false;
 
                 for (const auto &byte : data) {
@@ -133,6 +172,40 @@ namespace tsh {
                 }
 
                 return collide;
+            }
+    };
+
+    enum class Key : std::uint8_t {
+        Zero  = 0x0,
+        One   = 0x1,
+        Two   = 0x2,
+        Three = 0x3,
+        Four  = 0x4,
+        Five  = 0x5,
+        Six   = 0x6,
+        Seven = 0x7,
+        Eight = 0x8,
+        Nine  = 0x9,
+        A     = 0xA,
+        B     = 0xB,
+        C     = 0xC,
+        D     = 0xD,
+        E     = 0xE,
+        F     = 0xF,
+    };
+
+    class Keyboard {
+        NON_COPYABLE(Keyboard);
+        NON_MOVEABLE(Keyboard);
+
+        public:
+            ALWAYS_INLINE constexpr Keyboard() = default;
+
+            [[nodiscard]]
+            ALWAYS_INLINE constexpr bool KeyPressed(const Key key) const {
+                UNUSED(key);
+
+                return false;
             }
     };
 
@@ -171,12 +244,18 @@ namespace tsh {
                 LD_Addr,
                 RND,
                 DRW,
+                SKP,
+                SKNP,
+                LD_V_DT,
+                LD_DT_V,
                 ADD_I_V
             >;
 
             std::array<std::byte, TotalSpace.Size()> memory = {};
 
             Display display;
+
+            [[no_unique_address]] Keyboard keyboard;
 
             /* General purpose registers. */
             std::array<Register<std::uint8_t>, 0x10> V = {};
@@ -187,6 +266,9 @@ namespace tsh {
             /* Program counter. */
             Register<Address> PC = ProgramSpace.start;
 
+            /* Delay timer. */
+            Timer<std::uint8_t> DT;
+
             std::stack<Address> stack;
 
             RandomGenerator rng;
@@ -194,15 +276,15 @@ namespace tsh {
             ALWAYS_INLINE Chip8() = default;
 
             [[nodiscard]]
-            bool LoadProgram(std::span<const std::byte> data);
+            bool LoadProgram(const std::span<const std::byte> data);
 
             [[nodiscard]]
             bool LoadProgram(const std::string &path);
 
             constexpr RawOpcode ReadRawOpcode() const {
                 return (
-                    (std::to_integer<RawOpcode>(this->memory[this->PC]) << 8) |
-                    (std::to_integer<RawOpcode>(this->memory[this->PC + 1]))
+                    (std::to_integer<RawOpcode>(this->memory[this->PC.Get()]) << 8) |
+                    (std::to_integer<RawOpcode>(this->memory[this->PC.Get() + 1]))
                 );
             }
 
