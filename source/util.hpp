@@ -1,8 +1,97 @@
 #pragma once
 
-/* From Atmosphere */
 namespace tsh::util {
 
+    constexpr inline auto enumerate = std::views::transform([i = std::size_t{0}](auto &&x) mutable {
+        const auto index = i;
+
+        i++;
+
+        return std::pair<std::size_t, decltype(x)>(index, x);
+    });
+
+    template<typename Key, typename Value, std::size_t N>
+    class Map {
+        public:
+            using KeyAndValue = std::pair<Key, Value>;
+
+            Value default_value;
+            std::array<KeyAndValue, N> internal;
+
+            template<std::same_as<KeyAndValue>... Entries> requires (sizeof...(Entries) == N)
+            explicit consteval Map(const Value &default_value, Entries &&... entries)
+                : default_value(default_value), internal({std::forward<Entries>(entries)...}) { }
+
+            ALWAYS_INLINE constexpr auto begin() {
+                return this->internal.begin();
+            }
+
+            ALWAYS_INLINE constexpr auto begin() const {
+                return this->internal.begin();
+            }
+
+            ALWAYS_INLINE constexpr auto end() {
+                return this->internal.end();
+            }
+
+            ALWAYS_INLINE constexpr auto end() const {
+                return this->internal.end();
+            }
+
+            ALWAYS_INLINE constexpr auto data() {
+                return this->internal.data();
+            }
+
+            ALWAYS_INLINE constexpr auto data() const {
+                return this->internal.data();
+            }
+
+            ALWAYS_INLINE constexpr auto size() const {
+                return this->internal.size();
+            }
+
+            constexpr std::optional<Key> KeyForValue(const Value &to_find) const {
+                for (const auto &[key, value] : *this) {
+                    if (value == to_find) {
+                        return key;
+                    }
+                }
+
+                return {};
+            }
+
+            constexpr Value &operator [](const Key &to_find) {
+                for (auto &[key, value] : *this) {
+                    if (key == to_find) {
+                        return value;
+                    }
+                }
+
+                return this->default_value;
+            }
+
+            constexpr const Value &operator [](const Key &to_find) const {
+                for (const auto &[key, value] : *this) {
+                    if (key == to_find) {
+                        return value;
+                    }
+                }
+
+                return this->default_value;
+            }
+    };
+
+    template<typename T>
+    concept is_pair = requires {
+        typename T::first_type;
+        typename T::second_type;
+    } && std::same_as<T, std::pair<typename T::first_type, typename T::second_type>>;
+
+    template<typename Value, typename FirstEntry, typename... Entries>
+    requires (is_pair<FirstEntry> && (std::same_as<FirstEntry, Entries> && ...))
+    Map(Value, FirstEntry, Entries...) -> Map<typename FirstEntry::first_type, Value, sizeof...(Entries) + 1>;
+
+    /* From Atmosphere */
     template<class F>
     class ScopeGuard {
         NON_COPYABLE(ScopeGuard);

@@ -1,7 +1,9 @@
 #pragma once
 
 #include "common.hpp"
+#include "util.hpp"
 #include "instruction.hpp"
+#include "digits.hpp"
 
 namespace tsh {
 
@@ -36,9 +38,18 @@ namespace tsh {
 
             ALWAYS_INLINE constexpr Register(const Internal value) : value(value) { }
 
+            constexpr Internal Max() const {
+                return std::numeric_limits<Internal>::max();
+            }
+
             [[nodiscard]]
-            ALWAYS_INLINE constexpr Internal Get() const {
+            ALWAYS_INLINE constexpr const Internal &Get() const {
                 return this->value;
+            }
+
+            [[nodiscard]]
+            ALWAYS_INLINE constexpr bool IsBitSet(const std::uint8_t bit) const {
+                return (this->value & (Internal{1} << bit)) != 0;
             }
 
             ALWAYS_INLINE constexpr void Set(const Internal value) {
@@ -121,6 +132,10 @@ namespace tsh {
 
             static constexpr auto FullRow = std::numeric_limits<RowType>::max();
 
+            static constexpr RowType XBit(const Coord x) {
+                return (RowType{1} << (DisplayWidth - x - 1));
+            }
+
             /* Bitmap representing on/off pixels. */
             std::array<RowType, DisplayHeight> buffer = {};
 
@@ -132,19 +147,19 @@ namespace tsh {
 
             [[nodiscard]]
             ALWAYS_INLINE constexpr bool GetPixel(const Coord x, const Coord y) const {
-                return (this->buffer[y] & (RowType{1} << x)) != 0;
+                return (this->buffer[y] & XBit(x)) != 0;
             }
 
             ALWAYS_INLINE constexpr void SetPixel(const Coord x, const Coord y, const bool on) {
                 if (on) {
-                    this->buffer[y] |=  (RowType{1} << x);
+                    this->buffer[y] |=  XBit(x);
                 } else {
-                    this->buffer[y] &= ~(RowType{1} << x);
+                    this->buffer[y] &= ~XBit(x);
                 }
             }
 
             ALWAYS_INLINE constexpr void TogglePixel(const Coord x, const Coord y) {
-                this->buffer[y] ^= (RowType{1} << x);
+                this->buffer[y] ^= XBit(x);
             }
 
             constexpr bool DrawSprite(const Coord x, Coord y, const std::span<const std::byte> data) {
@@ -158,13 +173,13 @@ namespace tsh {
                         consider overflowing over the right and bottom.
                     */
                     if (x + BITSIZEOF(std::byte) > DisplayWidth) {
-                        const auto overflow_width = DisplayWidth - x;
+                        const auto overflow_width = BITSIZEOF(std::byte) - (DisplayWidth - x);
                         const auto overflow       = (sprite_row & ~(FullRow << overflow_width));
 
                         sprite_row >>= overflow_width;
-                        sprite_row  |= (overflow << (BITSIZEOF(RowType) - overflow_width));
+                        sprite_row  |= (overflow << (DisplayWidth - overflow_width));
                     } else {
-                        sprite_row <<= DisplayWidth - x - BITSIZEOF(std::byte);
+                        sprite_row <<= (DisplayWidth - x - BITSIZEOF(std::byte));
                     }
 
                     auto &current_row = this->buffer[y];
@@ -206,6 +221,8 @@ namespace tsh {
         D     = 0xD,
         E     = 0xE,
         F     = 0xF,
+
+        Invalid = 0x10,
     };
 
     class Keyboard {
@@ -213,14 +230,48 @@ namespace tsh {
         NON_MOVEABLE(Keyboard);
 
         public:
+            static constexpr auto KeyToInternal = util::Map(
+                sf::Keyboard::Unknown,
+
+                std::pair{Key::Zero,  sf::Keyboard::Numpad0},
+                std::pair{Key::One,   sf::Keyboard::Numpad7},
+                std::pair{Key::Two,   sf::Keyboard::Numpad8},
+                std::pair{Key::Three, sf::Keyboard::Numpad9},
+                std::pair{Key::Four,  sf::Keyboard::Numpad4},
+                std::pair{Key::Five,  sf::Keyboard::Numpad5},
+                std::pair{Key::Six,   sf::Keyboard::Numpad6},
+                std::pair{Key::Seven, sf::Keyboard::Numpad1},
+                std::pair{Key::Eight, sf::Keyboard::Numpad2},
+                std::pair{Key::Nine,  sf::Keyboard::Numpad3}
+            );
+
+            Key current_key = Key::Invalid;
+
             ALWAYS_INLINE constexpr Keyboard() = default;
 
             [[nodiscard]]
-            ALWAYS_INLINE constexpr bool KeyPressed(const Key key) const {
-                UNUSED(key);
-
-                return false;
+            ALWAYS_INLINE bool IsKeyPressed(const Key key) const {
+                return sf::Keyboard::isKeyPressed(KeyToInternal[key]);
             }
+
+            [[nodiscard]]
+            ALWAYS_INLINE constexpr Key CurrentKey() {
+                ON_SCOPE_EXIT { this->current_key = Key::Invalid; };
+
+                return this->current_key;
+            }
+
+            bool HandleEvent(const sf::Event &event);
+    };
+
+    class Speaker {
+        NON_COPYABLE(Speaker);
+        NON_MOVEABLE(Speaker);
+
+        public:
+            ALWAYS_INLINE constexpr Speaker() = default;
+
+            ALWAYS_INLINE constexpr void PlaySound() { }
     };
 
     class RandomGenerator {
@@ -245,9 +296,13 @@ namespace tsh {
 
         public:
             static constexpr auto TotalSpace   = AddressSpace(0x0000, 0x1000);
+            static constexpr auto DigitSpace   = AddressSpace(0x0000, sizeof(Digits));
             static constexpr auto ProgramSpace = AddressSpace(0x0200, 0x1000);
 
+            static constexpr auto FrameDuration = std::chrono::duration<double>(1.0 / 60);
+
             using Handler = InstructionHandler<
+                CLS,
                 RET,
                 JP_Addr,
                 CALL,
@@ -256,6 +311,11 @@ namespace tsh {
                 LD_V_Byte,
                 ADD_V_Byte,
                 LD_V_V,
+                AND_V_V,
+                XOR_V_V,
+                ADD_V_V,
+                SUB_V_V,
+                SHL_V,
                 SNE_V_V,
                 LD_I_Addr,
                 RND,
@@ -263,15 +323,19 @@ namespace tsh {
                 SKP,
                 SKNP,
                 LD_V_DT,
+                LD_V_K,
                 LD_DT_V,
-                ADD_I_V
+                LD_ST_V,
+                ADD_I_V,
+                LD_F_V,
+                LD_B_V,
+                LD_DEREF_I_V,
+                LD_V_DEREF_I
             >;
 
             std::array<std::byte, TotalSpace.Size()> memory = {};
 
             Display display;
-
-            [[no_unique_address]] Keyboard keyboard;
 
             /* General purpose registers. */
             std::array<Register<std::uint8_t>, 0x10> V = {};
@@ -285,11 +349,24 @@ namespace tsh {
             /* Delay timer. */
             Timer<std::uint8_t> DT;
 
+            /* Sound timer. */
+            Timer<std::uint8_t> ST;
+
             std::stack<Address> stack;
+
+            Keyboard keyboard;
+
+            [[no_unique_address]] Speaker speaker;
 
             RandomGenerator rng;
 
-            ALWAYS_INLINE Chip8() = default;
+            ALWAYS_INLINE Chip8() {
+                for (const auto &&[i, digit] : util::enumerate(Digits)) {
+                    std::ranges::copy(digit, this->memory.begin() + DigitSpace.start + (i * sizeof(Digit)));
+                }
+            }
+
+            bool PropagateEvent(const sf::Event &event);
 
             [[nodiscard]]
             bool LoadProgram(const std::span<const std::byte> data);
