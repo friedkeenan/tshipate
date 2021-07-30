@@ -8,34 +8,38 @@ namespace tsh {
     /* Forward declare. */
     class Chip8;
 
-    using RawOpcode = std::uint16_t;
-
     class Opcode {
         public:
             RawOpcode op;
 
             ALWAYS_INLINE constexpr Opcode(RawOpcode op) : op(op) { }
 
+            [[nodiscard]]
             ALWAYS_INLINE constexpr const RawOpcode &Get() const {
                 return this->op;
             }
 
-            ALWAYS_INLINE constexpr std::uint16_t Addr() const {
+            [[nodiscard]]
+            ALWAYS_INLINE constexpr Address Addr() const {
                 return this->Get() & 0x0FFF;
             }
 
+            [[nodiscard]]
             ALWAYS_INLINE constexpr std::uint8_t X() const {
                 return (this->Get() & 0x0F00) >> 8;
             }
 
+            [[nodiscard]]
             ALWAYS_INLINE constexpr std::uint8_t Y() const {
                 return (this->Get() & 0x00F0) >> 4;
             }
 
+            [[nodiscard]]
             ALWAYS_INLINE constexpr std::uint8_t Byte() const {
                 return this->Get() & 0x00FF;
             }
 
+            [[nodiscard]]
             ALWAYS_INLINE constexpr std::uint8_t Nibble() const {
                 return this->Get() & 0x000F;
             }
@@ -43,16 +47,19 @@ namespace tsh {
 
     static_assert(sizeof(Opcode) == sizeof(RawOpcode));
 
+    using PCAdvance = std::int32_t;
+
     template<typename T>
     concept Instruction = requires(Chip8 &ch8, Opcode op) {
         { T::Compare(op) }      -> std::same_as<bool>;
-        { T::Execute(ch8, op) } -> std::same_as<std::int32_t>;
+        { T::Execute(ch8, op) } -> std::same_as<PCAdvance>;
     };
 
     template<Instruction Ins, typename... Ts>
     class InstructionHandler {
         public:
-            static constexpr std::optional<std::int32_t> Execute(Chip8 &ch8, const Opcode op) {
+            [[nodiscard]]
+            static constexpr std::optional<PCAdvance> Execute(Chip8 &ch8, const Opcode op) {
                 if (Ins::Compare(op)) {
                     return Ins::Execute(ch8, op);
                 }
@@ -65,7 +72,8 @@ namespace tsh {
     template<Instruction Ins>
     class InstructionHandler<Ins> {
         public:
-            static constexpr std::optional<std::int32_t> Execute(Chip8 &ch8, const Opcode op) {
+            [[nodiscard]]
+            static constexpr std::optional<PCAdvance> Execute(Chip8 &ch8, const Opcode op) {
                 if (Ins::Compare(op)) {
                     return Ins::Execute(ch8, op);
                 }
@@ -78,10 +86,12 @@ namespace tsh {
         class name {                                                           \
             public:                                                            \
                 static constexpr auto Pattern = NibblePattern(pattern);        \
+                [[nodiscard]]                                                  \
                 ALWAYS_INLINE static constexpr bool Compare(const Opcode op) { \
                     return Pattern.matches(op.Get());                          \
                 }                                                              \
-                static std::int32_t Execute(Chip8 &ch8, const Opcode op);      \
+                [[nodiscard]]                                                  \
+                static PCAdvance Execute(Chip8 &ch8, const Opcode op);         \
         }
 
     INSTRUCTION_DECLARE(CLS,          "00E0");

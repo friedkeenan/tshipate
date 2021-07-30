@@ -5,7 +5,7 @@
 namespace tsh {
 
     #define INSTRUCTION_EXECUTE(name) \
-        std::int32_t name::Execute(Chip8 &ch8, const Opcode op)
+        PCAdvance name::Execute(Chip8 &ch8, const Opcode op)
 
     INSTRUCTION_EXECUTE(CLS) {
         UNUSED(op);
@@ -225,7 +225,7 @@ namespace tsh {
     }
 
     INSTRUCTION_EXECUTE(SKP) {
-        //std::this_thread::sleep_for(Chip8::FrameDuration);
+        std::this_thread::sleep_for(Chip8::FrameDuration);
 
         const auto key = static_cast<Key>(op.X());
 
@@ -237,7 +237,7 @@ namespace tsh {
     }
 
     INSTRUCTION_EXECUTE(SKNP) {
-        //std::this_thread::sleep_for(Chip8::FrameDuration);
+        std::this_thread::sleep_for(Chip8::FrameDuration);
 
         const auto key = static_cast<Key>(op.X());
 

@@ -7,9 +7,6 @@
 
 namespace tsh {
 
-    using Address   = std::uint16_t;
-    using RawOpcode = std::uint16_t;
-
     class AddressSpace {
         public:
             Address start, end;
@@ -169,7 +166,7 @@ namespace tsh {
                     auto sprite_row = std::to_integer<RowType>(byte);
 
                     /*
-                        Coords cannot be negative so only need to
+                        Coords cannot be negative so we only need to
                         consider overflowing over the right and bottom.
                     */
                     if (x + BITSIZEOF(std::byte) > DisplayWidth) {
@@ -184,12 +181,11 @@ namespace tsh {
 
                     auto &current_row = this->buffer[y];
 
-                    const auto new_row = current_row ^ sprite_row;
-                    if ((current_row | sprite_row) != new_row) {
+                    if ((current_row & sprite_row) != 0) {
                         collide = true;
                     }
 
-                    current_row = new_row;
+                    current_row = current_row ^ sprite_row;
 
                     y = (y + 1) % DisplayHeight;
                 }
@@ -374,9 +370,12 @@ namespace tsh {
             RandomGenerator rng;
 
             ALWAYS_INLINE Chip8() {
-                for (const auto &&[i, digit] : util::enumerate(Digits)) {
-                    std::ranges::copy(digit, this->memory.begin() + DigitSpace.start + (i * sizeof(Digit)));
-                }
+                /*
+                    The compiler didn't optimize copying each digit separately as
+                    well as I would've hoped, so copy all of them in one fell swoop.
+                */
+                const auto raw_digits = reinterpret_cast<const std::byte *>(Digits.data());
+                std::memcpy(this->memory.data() + DigitSpace.start, raw_digits, sizeof(Digits));
             }
 
             bool PropagateEvent(const sf::Event &event);
