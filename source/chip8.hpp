@@ -242,7 +242,13 @@ namespace tsh {
                 std::pair{Key::Six,   sf::Keyboard::Numpad6},
                 std::pair{Key::Seven, sf::Keyboard::Numpad1},
                 std::pair{Key::Eight, sf::Keyboard::Numpad2},
-                std::pair{Key::Nine,  sf::Keyboard::Numpad3}
+                std::pair{Key::Nine,  sf::Keyboard::Numpad3},
+                std::pair{Key::A,     sf::Keyboard::Num1},
+                std::pair{Key::B,     sf::Keyboard::Num2},
+                std::pair{Key::C,     sf::Keyboard::Num3},
+                std::pair{Key::D,     sf::Keyboard::Num4},
+                std::pair{Key::E,     sf::Keyboard::Num5},
+                std::pair{Key::F,     sf::Keyboard::Num6}
             );
 
             Key current_key = Key::Invalid;
@@ -299,6 +305,8 @@ namespace tsh {
             static constexpr auto DigitSpace   = AddressSpace(0x0000, sizeof(Digits));
             static constexpr auto ProgramSpace = AddressSpace(0x0200, 0x1000);
 
+            static_assert(DigitSpace.end <= ProgramSpace.start);
+
             static constexpr auto FrameDuration = std::chrono::duration<double>(1.0 / 60);
 
             using Handler = InstructionHandler<
@@ -308,16 +316,21 @@ namespace tsh {
                 CALL,
                 SE_V_Byte,
                 SNE_V_Byte,
+                SE_V_V,
                 LD_V_Byte,
                 ADD_V_Byte,
                 LD_V_V,
+                OR_V_V,
                 AND_V_V,
                 XOR_V_V,
                 ADD_V_V,
                 SUB_V_V,
+                SHR_V,
+                SUBN_V_V,
                 SHL_V,
                 SNE_V_V,
                 LD_I_Addr,
+                JP_V0_Addr,
                 RND,
                 DRW,
                 SKP,

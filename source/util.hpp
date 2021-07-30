@@ -19,7 +19,7 @@ namespace tsh::util {
             std::array<KeyAndValue, N> internal;
 
             template<std::same_as<KeyAndValue>... Entries> requires (sizeof...(Entries) == N)
-            explicit consteval Map(const Value &default_value, Entries &&... entries)
+            explicit constexpr Map(const Value &default_value, Entries &&... entries)
                 : default_value(default_value), internal({std::forward<Entries>(entries)...}) { }
 
             ALWAYS_INLINE constexpr auto begin() {
@@ -87,8 +87,8 @@ namespace tsh::util {
         typename T::second_type;
     } && std::same_as<T, std::pair<typename T::first_type, typename T::second_type>>;
 
-    template<typename Value, typename FirstEntry, typename... Entries>
-    requires (is_pair<FirstEntry> && (std::same_as<FirstEntry, Entries> && ...))
+    template<typename Value, is_pair FirstEntry, std::same_as<FirstEntry>... Entries>
+    requires std::same_as<Value, typename FirstEntry::second_type>
     Map(Value, FirstEntry, Entries...) -> Map<typename FirstEntry::first_type, Value, sizeof...(Entries) + 1>;
 
     /* From Atmosphere */

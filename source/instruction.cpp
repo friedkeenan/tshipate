@@ -53,6 +53,14 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_EXECUTE(SE_V_V) {
+        if (ch8.V[op.X()].Get() == ch8.V[op.Y()].Get()) {
+            return 2;
+        }
+
+        return 1;
+    }
+
     INSTRUCTION_EXECUTE(LD_V_Byte) {
         ch8.V[op.X()].Set(op.Byte());
 
@@ -67,6 +75,15 @@ namespace tsh {
 
     INSTRUCTION_EXECUTE(LD_V_V) {
         ch8.V[op.X()].Set(ch8.V[op.Y()].Get());
+
+        return 1;
+    }
+
+    INSTRUCTION_EXECUTE(OR_V_V) {
+        const auto &x = ch8.V[op.X()].Get();
+        const auto &y = ch8.V[op.Y()].Get();
+
+        ch8.V[op.X()].Set(x | y);
 
         return 1;
     }
@@ -123,6 +140,36 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_EXECUTE(SHR_V) {
+              auto &reg_x = ch8.V[op.X()];
+        const auto &x     = reg_x.Get();
+
+        if (reg_x.IsBitSet(0)) {
+            ch8.V[0xF].Set(1);
+        } else {
+            ch8.V[0xF].Set(0);
+        }
+
+        reg_x.Set(x >> 1);
+
+        return 1;
+    }
+
+    INSTRUCTION_EXECUTE(SUBN_V_V) {
+        const auto &x = ch8.V[op.X()].Get();
+        const auto &y = ch8.V[op.Y()].Get();
+
+        if (y > x) {
+            ch8.V[0xF].Set(1);
+        } else {
+            ch8.V[0xF].Set(0);
+        }
+
+        ch8.V[op.X()].Set(y - x);
+
+        return 1;
+    }
+
     INSTRUCTION_EXECUTE(SHL_V) {
               auto &reg_x = ch8.V[op.X()];
         const auto &x     = reg_x.Get();
@@ -152,6 +199,12 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_EXECUTE(JP_V0_Addr) {
+        ch8.PC.Set(op.Addr() + ch8.V[0x0].Get());
+
+        return 0;
+    }
+
     INSTRUCTION_EXECUTE(RND) {
         ch8.V[op.X()].Set(ch8.rng.RandomU8() & op.Byte());
 
@@ -172,7 +225,7 @@ namespace tsh {
     }
 
     INSTRUCTION_EXECUTE(SKP) {
-        std::this_thread::sleep_for(Chip8::FrameDuration);
+        //std::this_thread::sleep_for(Chip8::FrameDuration);
 
         const auto key = static_cast<Key>(op.X());
 
@@ -184,7 +237,7 @@ namespace tsh {
     }
 
     INSTRUCTION_EXECUTE(SKNP) {
-        std::this_thread::sleep_for(Chip8::FrameDuration);
+        //std::this_thread::sleep_for(Chip8::FrameDuration);
 
         const auto key = static_cast<Key>(op.X());
 

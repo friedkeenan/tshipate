@@ -188,4 +188,12 @@ namespace tsh {
         }),
     };
 
+    static_assert(Digits[0xF].raw_data == std::array{
+        std::byte{0b11110000},
+        std::byte{0b10000000},
+        std::byte{0b11110000},
+        std::byte{0b10000000},
+        std::byte{0b10000000},
+    });
+
 }
