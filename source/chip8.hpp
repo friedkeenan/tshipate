@@ -18,7 +18,7 @@ namespace tsh {
             }
 
             [[nodiscard]]
-            consteval std::size_t Size() const {
+            constexpr std::size_t Size() const {
                 return end - start;
             }
     };
@@ -273,7 +273,7 @@ namespace tsh {
         public:
             ALWAYS_INLINE constexpr Speaker() = default;
 
-            ALWAYS_INLINE constexpr void PlaySound() { }
+            ALWAYS_INLINE constexpr void PlaySound() const { }
     };
 
     class RandomGenerator {
@@ -380,17 +380,77 @@ namespace tsh {
 
             bool PropagateEvent(const sf::Event &event);
 
+            template<typename... Args>
             [[nodiscard]]
-            bool LoadProgram(const std::span<const std::byte> data);
+            ALWAYS_INLINE constexpr bool LoadProgram(Args &&... args) {
+                return LoadProgramIntoBuffer(this->memory.begin() + ProgramSpace.start, std::forward<Args>(args)...).has_value();
+            }
 
+            template<std::output_iterator<std::byte> OutputIt>
             [[nodiscard]]
-            bool LoadProgram(const std::string &path);
+            static constexpr std::optional<std::size_t> LoadProgramIntoBuffer(OutputIt out, const std::span<const std::byte> data) {
+                if (data.size() > ProgramSpace.Size()) {
+                    return {};
+                }
 
-            constexpr RawOpcode ReadRawOpcode() const {
-                return (
-                    (std::to_integer<RawOpcode>(this->memory[this->PC.Get()]) << 8) |
-                    (std::to_integer<RawOpcode>(this->memory[this->PC.Get() + 1]))
-                );
+                std::ranges::copy(data, out);
+
+                return data.size();
+            }
+
+            template<std::output_iterator<std::byte> OutputIt>
+            [[nodiscard]]
+            static std::optional<std::size_t> LoadProgramIntoBuffer(OutputIt &&out, const std::string &path) {
+                const auto fp = std::fopen(path.c_str(), "rb");
+                if (fp == nullptr) {
+                    return {};
+                }
+
+                ON_SCOPE_EXIT { std::fclose(fp); };
+
+                if (std::fseek(fp, 0, SEEK_END) != 0) {
+                    return {};
+                }
+
+                const auto offset = std::ftell(fp);
+                if (offset < 0) {
+                    return {};
+                }
+
+                const auto size = static_cast<std::size_t>(offset);
+
+                if (size > ProgramSpace.Size()) {
+                    return {};
+                }
+
+                if (std::fseek(fp, 0, SEEK_SET) != 0) {
+                    return {};
+                }
+
+                const auto data = std::make_unique<std::byte[]>(size);
+                if (std::fread(data.get(), size, 1, fp) != 1) {
+                    return {};
+                }
+
+                return LoadProgramIntoBuffer(std::forward<OutputIt>(out), std::span(data.get(), size));
+            }
+
+            ALWAYS_INLINE constexpr RawOpcode ReadRawOpcode() const {
+                return ReadRawOpcodeFromBuffer(std::span(this->memory.data() + this->PC.Get(), sizeof(RawOpcode)));
+            }
+
+            static constexpr RawOpcode ReadRawOpcodeFromBuffer(const std::span<const std::byte> data) {
+                if (data.size() < sizeof(RawOpcode)) {
+                    return {};
+                }
+
+                RawOpcode raw_op = {};
+                for (const auto i : std::views::iota(std::size_t{0}, sizeof(RawOpcode))) {
+                    const auto &byte = data[i];
+                    raw_op |= (std::to_integer<RawOpcode>(byte) << (BITSIZEOF(RawOpcode) - BITSIZEOF(std::byte) * i - BITSIZEOF(std::byte)));
+                }
+
+                return raw_op;
             }
 
             [[nodiscard]]

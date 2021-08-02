@@ -12,7 +12,7 @@ namespace tsh {
         public:
             RawOpcode op;
 
-            ALWAYS_INLINE constexpr Opcode(RawOpcode op) : op(op) { }
+            ALWAYS_INLINE constexpr explicit Opcode(RawOpcode op) : op(op) { }
 
             [[nodiscard]]
             ALWAYS_INLINE constexpr const RawOpcode &Get() const {
@@ -50,21 +50,34 @@ namespace tsh {
     using PCAdvance = std::int32_t;
 
     template<typename T>
-    concept Instruction = requires(Chip8 &ch8, Opcode op) {
-        { T::Compare(op) }      -> std::same_as<bool>;
-        { T::Execute(ch8, op) } -> std::same_as<PCAdvance>;
+    concept Instruction = requires(Chip8 &ch8, Opcode op, DisassembleOutputIterator out) {
+        { T::Compare(op) }          -> std::same_as<bool>;
+        { T::Execute(ch8, op) }     -> std::same_as<PCAdvance>;
+        { T::Disassemble(out, op) } -> std::same_as<DisassembleOutputIterator>;
     };
 
     template<Instruction Ins, typename... Ts>
     class InstructionHandler {
         public:
             [[nodiscard]]
-            static constexpr std::optional<PCAdvance> Execute(Chip8 &ch8, const Opcode op) {
+            static std::optional<PCAdvance> Execute(Chip8 &ch8, const Opcode op) {
                 if (Ins::Compare(op)) {
                     return Ins::Execute(ch8, op);
                 }
 
                 return InstructionHandler<Ts...>::Execute(ch8, op);
+            }
+
+            [[nodiscard]]
+            static std::optional<DisassembleOutputIterator> Disassemble(DisassembleOutputIterator out, const std::size_t offset, const Opcode op) {
+                if (Ins::Compare(op)) {
+                    out = fmt::format_to(out, "{:04X}: ({:04X}) -> ", offset, op.Get());
+                    out = Ins::Disassemble(out, op);
+
+                    return fmt::format_to(out, "\n");
+                }
+
+                return InstructionHandler<Ts...>::Disassemble(out, offset, op);
             }
     };
 
@@ -73,25 +86,39 @@ namespace tsh {
     class InstructionHandler<Ins> {
         public:
             [[nodiscard]]
-            static constexpr std::optional<PCAdvance> Execute(Chip8 &ch8, const Opcode op) {
+            static std::optional<PCAdvance> Execute(Chip8 &ch8, const Opcode op) {
                 if (Ins::Compare(op)) {
                     return Ins::Execute(ch8, op);
                 }
 
                 return {};
             }
+
+            [[nodiscard]]
+            static std::optional<DisassembleOutputIterator> Disassemble(DisassembleOutputIterator out, const std::size_t offset, const Opcode op) {
+                if (Ins::Compare(op)) {
+                    out = fmt::format_to(out, "{:04X}: ({:04X}) -> ", offset, op.Get());
+                    out = Ins::Disassemble(out, op);
+
+                    return fmt::format_to(out, "\n");
+                }
+
+                return {};
+            }
     };
 
-    #define INSTRUCTION_DECLARE(name, pattern)                                 \
-        class name {                                                           \
-            public:                                                            \
-                static constexpr auto Pattern = NibblePattern(pattern);        \
-                [[nodiscard]]                                                  \
-                ALWAYS_INLINE static constexpr bool Compare(const Opcode op) { \
-                    return Pattern.matches(op.Get());                          \
-                }                                                              \
-                [[nodiscard]]                                                  \
-                static PCAdvance Execute(Chip8 &ch8, const Opcode op);         \
+    #define INSTRUCTION_DECLARE(name, pattern)                                                                      \
+        class name {                                                                                                \
+            public:                                                                                                 \
+                static constexpr auto Pattern = NibblePattern(pattern);                                             \
+                [[nodiscard]]                                                                                       \
+                static constexpr bool Compare(const Opcode op) {                                                    \
+                    return Pattern.matches(op.Get());                                                               \
+                }                                                                                                   \
+                [[nodiscard]]                                                                                       \
+                static PCAdvance Execute(Chip8 &ch8, const Opcode op);                                              \
+                [[nodiscard]]                                                                                       \
+                static DisassembleOutputIterator Disassemble(const DisassembleOutputIterator out, const Opcode op); \
         }
 
     INSTRUCTION_DECLARE(CLS,          "00E0");

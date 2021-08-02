@@ -18,7 +18,9 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <iterator>
 #include <ranges>
 #include <concepts>
 
 #include <SFML/Graphics.hpp>
+#include <fmt/format.h>

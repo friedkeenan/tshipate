@@ -13,7 +13,8 @@ sources = []
 subdir('source')
 
 executable(meson.project_name(), sources,
-    dependencies : dependencies,
+    include_directories : 'include',
+    dependencies        : dependencies,
 
     link_args : '-s',
     cpp_args  : [
@@ -23,8 +24,6 @@ executable(meson.project_name(), sources,
         '-Wextra',
         '-Werror',
 
-        '-fno-exceptions',
-        '-fno-rtti',
         '-fconcepts-diagnostics-depth=2',
     ]
 )

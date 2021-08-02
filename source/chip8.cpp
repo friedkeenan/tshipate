@@ -11,8 +11,8 @@ namespace tsh {
         auto rect = sf::RectangleShape(sf::Vector2f(PixelWidth, PixelWidth));
         rect.setFillColor(sf::Color::White);
 
-        for (const auto x : std::views::iota(Coord{0}, Coord{DisplayWidth + 1})) {
-            for (const auto y : std::views::iota(Coord{0}, Coord{DisplayHeight + 1})) {
+        for (const auto x : std::views::iota(Coord{0}, DisplayWidth)) {
+            for (const auto y : std::views::iota(Coord{0}, DisplayHeight)) {
                 if (this->GetPixel(x, y)) {
                     rect.setPosition(PixelWidth * x, PixelWidth * y);
                     window.draw(rect);
@@ -51,51 +51,6 @@ namespace tsh {
         #undef HANDLE_EVENT
 
         return true;
-    }
-
-    bool Chip8::LoadProgram(const std::span<const std::byte> data) {
-        if (data.size() > ProgramSpace.Size()) {
-            return false;
-        }
-
-        std::ranges::copy(data, this->memory.begin() + ProgramSpace.start);
-
-        return true;
-    }
-
-    bool Chip8::LoadProgram(const std::string &path) {
-        const auto fp = std::fopen(path.c_str(), "rb");
-        if (fp == nullptr) {
-            return false;
-        }
-
-        ON_SCOPE_EXIT { std::fclose(fp); };
-
-        if (std::fseek(fp, 0, SEEK_END) != 0) {
-            return false;
-        }
-
-        const auto offset = std::ftell(fp);
-        if (offset < 0) {
-            return false;
-        }
-
-        const auto size = static_cast<std::size_t>(offset);
-
-        if (size > ProgramSpace.Size()) {
-            return false;
-        }
-
-        if (std::fseek(fp, 0, SEEK_SET) != 0) {
-            return false;
-        }
-
-        const auto data = std::make_unique<std::byte[]>(size);
-        if (std::fread(data.get(), size, 1, fp) != 1) {
-            return false;
-        }
-
-        return this->LoadProgram(std::span(data.get(), size));
     }
 
     bool Chip8::Tick() {

@@ -4,8 +4,17 @@
 
 namespace tsh {
 
+    #define INSTRUCTION_DISASSEMBLE(name) \
+        DisassembleOutputIterator name::Disassemble(const DisassembleOutputIterator out, const Opcode op)
+
     #define INSTRUCTION_EXECUTE(name) \
         PCAdvance name::Execute(Chip8 &ch8, const Opcode op)
+
+    INSTRUCTION_DISASSEMBLE(CLS) {
+        UNUSED(op);
+
+        return fmt::format_to(out, "CLS");
+    }
 
     INSTRUCTION_EXECUTE(CLS) {
         UNUSED(op);
@@ -13,6 +22,12 @@ namespace tsh {
         ch8.display.Clear();
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(RET) {
+        UNUSED(op);
+
+        return fmt::format_to(out, "RET");
     }
 
     INSTRUCTION_EXECUTE(RET) {
@@ -24,10 +39,18 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(JP_Addr) {
+        return fmt::format_to(out, "JP 0x{:03X}", op.Addr());
+    }
+
     INSTRUCTION_EXECUTE(JP_Addr) {
         ch8.PC.Set(op.Addr());
 
         return 0;
+    }
+
+    INSTRUCTION_DISASSEMBLE(CALL) {
+        return fmt::format_to(out, "CALL 0x{:03X}", op.Addr());
     }
 
     INSTRUCTION_EXECUTE(CALL) {
@@ -35,6 +58,10 @@ namespace tsh {
         ch8.PC.Set(op.Addr());
 
         return 0;
+    }
+
+    INSTRUCTION_DISASSEMBLE(SE_V_Byte) {
+        return fmt::format_to(out, "SE V{:01X}, 0x{:02X}", op.X(), op.Byte());
     }
 
     INSTRUCTION_EXECUTE(SE_V_Byte) {
@@ -45,12 +72,20 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(SNE_V_Byte) {
+        return fmt::format_to(out, "SNE V{:01X}, 0x{:02X}", op.X(), op.Byte());
+    }
+
     INSTRUCTION_EXECUTE(SNE_V_Byte) {
         if (ch8.V[op.X()].Get() != op.Byte()) {
             return 2;
         }
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(SE_V_V) {
+        return fmt::format_to(out, "SE V{:01X}, V{:01X}", op.X(), op.Y());
     }
 
     INSTRUCTION_EXECUTE(SE_V_V) {
@@ -61,10 +96,18 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(LD_V_Byte) {
+        return fmt::format_to(out, "LD V{:01X}, 0x{:02X}", op.X(), op.Byte());
+    }
+
     INSTRUCTION_EXECUTE(LD_V_Byte) {
         ch8.V[op.X()].Set(op.Byte());
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(ADD_V_Byte) {
+        return fmt::format_to(out, "ADD V{:01X}, 0x{:02X}", op.X(), op.Byte());
     }
 
     INSTRUCTION_EXECUTE(ADD_V_Byte) {
@@ -73,10 +116,18 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(LD_V_V) {
+        return fmt::format_to(out, "LD V{:01X}, V{:01X}", op.X(), op.Y());
+    }
+
     INSTRUCTION_EXECUTE(LD_V_V) {
         ch8.V[op.X()].Set(ch8.V[op.Y()].Get());
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(OR_V_V) {
+        return fmt::format_to(out, "OR V{:01X}, V{:01X}", op.X(), op.Y());
     }
 
     INSTRUCTION_EXECUTE(OR_V_V) {
@@ -88,6 +139,10 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(AND_V_V) {
+        return fmt::format_to(out, "AND V{:01X}, V{:01X}", op.X(), op.Y());
+    }
+
     INSTRUCTION_EXECUTE(AND_V_V) {
         const auto &x = ch8.V[op.X()].Get();
         const auto &y = ch8.V[op.Y()].Get();
@@ -97,6 +152,10 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(XOR_V_V) {
+        return fmt::format_to(out, "XOR V{:01X}, V{:01X}", op.X(), op.Y());
+    }
+
     INSTRUCTION_EXECUTE(XOR_V_V) {
         const auto &x = ch8.V[op.X()].Get();
         const auto &y = ch8.V[op.Y()].Get();
@@ -104,6 +163,10 @@ namespace tsh {
         ch8.V[op.X()].Set(x ^ y);
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(ADD_V_V) {
+        return fmt::format_to(out, "ADD V{:01X}, V{:01X}", op.X(), op.Y());
     }
 
     INSTRUCTION_EXECUTE(ADD_V_V) {
@@ -125,6 +188,10 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(SUB_V_V) {
+        return fmt::format_to(out, "SUB V{:01X}, V{:01X}", op.X(), op.Y());
+    }
+
     INSTRUCTION_EXECUTE(SUB_V_V) {
         const auto &x = ch8.V[op.X()].Get();
         const auto &y = ch8.V[op.Y()].Get();
@@ -138,6 +205,10 @@ namespace tsh {
         ch8.V[op.X()].Set(x - y);
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(SHR_V) {
+        return fmt::format_to(out, "SHR V{:01X}", op.X());
     }
 
     INSTRUCTION_EXECUTE(SHR_V) {
@@ -155,6 +226,10 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(SUBN_V_V) {
+        return fmt::format_to(out, "SUBN V{:01X}, V{:01X}", op.X(), op.Y());
+    }
+
     INSTRUCTION_EXECUTE(SUBN_V_V) {
         const auto &x = ch8.V[op.X()].Get();
         const auto &y = ch8.V[op.Y()].Get();
@@ -168,6 +243,10 @@ namespace tsh {
         ch8.V[op.X()].Set(y - x);
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(SHL_V) {
+        return fmt::format_to(out, "SHL V{:01X}", op.X());
     }
 
     INSTRUCTION_EXECUTE(SHL_V) {
@@ -185,6 +264,10 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(SNE_V_V) {
+        return fmt::format_to(out, "SNE V{:01X}, V{:01X}", op.X(), op.Y());
+    }
+
     INSTRUCTION_EXECUTE(SNE_V_V) {
         if (ch8.V[op.X()].Get() != ch8.V[op.Y()].Get()) {
             return 2;
@@ -193,10 +276,18 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(LD_I_Addr) {
+        return fmt::format_to(out, "LD I, 0x{:03X}", op.Addr());
+    }
+
     INSTRUCTION_EXECUTE(LD_I_Addr) {
         ch8.I.Set(op.Addr());
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(JP_V0_Addr) {
+        return fmt::format_to(out, "JP V0, 0x{:03X}", op.Addr());
     }
 
     INSTRUCTION_EXECUTE(JP_V0_Addr) {
@@ -205,10 +296,18 @@ namespace tsh {
         return 0;
     }
 
+    INSTRUCTION_DISASSEMBLE(RND) {
+        return fmt::format_to(out, "RND V{:01X}, 0x{:02X}", op.X(), op.Byte());
+    }
+
     INSTRUCTION_EXECUTE(RND) {
         ch8.V[op.X()].Set(ch8.rng.RandomU8() & op.Byte());
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(DRW) {
+        return fmt::format_to(out, "DRW V{:01X}, V{:01X}, 0x{:01X}", op.X(), op.Y(), op.Nibble());
     }
 
     INSTRUCTION_EXECUTE(DRW) {
@@ -224,6 +323,10 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(SKP) {
+        return fmt::format_to(out, "SKP V{:01X}", op.X());
+    }
+
     INSTRUCTION_EXECUTE(SKP) {
         std::this_thread::sleep_for(Chip8::FrameDuration);
 
@@ -234,6 +337,10 @@ namespace tsh {
         }
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(SKNP) {
+        return fmt::format_to(out, "SKNP V{:01X}", op.X());
     }
 
     INSTRUCTION_EXECUTE(SKNP) {
@@ -248,10 +355,18 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(LD_V_DT) {
+        return fmt::format_to(out, "LD V{:01X}, DT", op.X());
+    }
+
     INSTRUCTION_EXECUTE(LD_V_DT) {
         ch8.V[op.X()].Set(ch8.DT.Get());
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(LD_V_K) {
+        return fmt::format_to(out, "LD V{:01X}, K", op.X());
     }
 
     INSTRUCTION_EXECUTE(LD_V_K) {
@@ -266,10 +381,18 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(LD_DT_V) {
+        return fmt::format_to(out, "LD DT, V{:01X}", op.X());
+    }
+
     INSTRUCTION_EXECUTE(LD_DT_V) {
         ch8.DT.Set(ch8.V[op.X()].Get());
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(LD_ST_V) {
+        return fmt::format_to(out, "LD ST, V{:01X}", op.X());
     }
 
     INSTRUCTION_EXECUTE(LD_ST_V) {
@@ -278,16 +401,28 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(ADD_I_V) {
+        return fmt::format_to(out, "ADD I, V{:01X}", op.X());
+    }
+
     INSTRUCTION_EXECUTE(ADD_I_V) {
         ch8.I.Increment(ch8.V[op.X()].Get());
 
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(LD_F_V) {
+        return fmt::format_to(out, "LD F, V{:01X}", op.X());
+    }
+
     INSTRUCTION_EXECUTE(LD_F_V) {
         ch8.I.Set(Chip8::DigitSpace.start + sizeof(Digit) * ch8.V[op.X()].Get());
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(LD_B_V) {
+        return fmt::format_to(out, "LD B, V{:01X}", op.X());
     }
 
     INSTRUCTION_EXECUTE(LD_B_V) {
@@ -307,6 +442,10 @@ namespace tsh {
         return 1;
     }
 
+    INSTRUCTION_DISASSEMBLE(LD_DEREF_I_V) {
+        return fmt::format_to(out, "LD [I], V{:01X}", op.X());
+    }
+
     INSTRUCTION_EXECUTE(LD_DEREF_I_V) {
         const auto &addr = ch8.I.Get();
 
@@ -317,6 +456,10 @@ namespace tsh {
         }
 
         return 1;
+    }
+
+    INSTRUCTION_DISASSEMBLE(LD_V_DEREF_I) {
+        return fmt::format_to(out, "LD V{:01X}, [I]", op.X());
     }
 
     INSTRUCTION_EXECUTE(LD_V_DEREF_I) {
