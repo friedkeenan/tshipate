@@ -8,15 +8,25 @@ namespace tsh {
     /* Forward declare. */
     class Chip8;
 
+    /* Forward declare. */
+    class Assembler;
+
     class Opcode {
         public:
-            RawOpcode op;
+            RawOpcode op = {};
 
-            ALWAYS_INLINE constexpr explicit Opcode(RawOpcode op) : op(op) { }
+            ALWAYS_INLINE constexpr Opcode() = default;
+            ALWAYS_INLINE constexpr explicit Opcode(const RawOpcode op) : op(op) { }
 
             [[nodiscard]]
             ALWAYS_INLINE constexpr const RawOpcode &Get() const {
                 return this->op;
+            }
+
+            ALWAYS_INLINE constexpr Opcode &Set(const RawOpcode value) {
+                this->op = value;
+
+                return *this;
             }
 
             [[nodiscard]]
@@ -24,9 +34,21 @@ namespace tsh {
                 return this->Get() & 0x0FFF;
             }
 
+            ALWAYS_INLINE constexpr Opcode &Addr(const Address addr) {
+                this->Set((this->Get() & 0xF000) | addr);
+
+                return *this;
+            }
+
             [[nodiscard]]
             ALWAYS_INLINE constexpr std::uint8_t X() const {
                 return (this->Get() & 0x0F00) >> 8;
+            }
+
+            ALWAYS_INLINE constexpr Opcode &X(const std::uint8_t x) {
+                this->Set((this->Get() & 0xF0FF) | (static_cast<std::uint16_t>(x) << 8));
+
+                return *this;
             }
 
             [[nodiscard]]
@@ -34,27 +56,76 @@ namespace tsh {
                 return (this->Get() & 0x00F0) >> 4;
             }
 
+            ALWAYS_INLINE constexpr Opcode &Y(const std::uint8_t y) {
+                this->Set((this->Get() & 0xFF0F) | (y << 4));
+
+                return *this;
+            }
+
             [[nodiscard]]
             ALWAYS_INLINE constexpr std::uint8_t Byte() const {
                 return this->Get() & 0x00FF;
+            }
+
+            ALWAYS_INLINE constexpr Opcode &Byte(const std::uint8_t byte) {
+                this->Set((this->Get() & 0xFF00) | byte);
+
+                return *this;
             }
 
             [[nodiscard]]
             ALWAYS_INLINE constexpr std::uint8_t Nibble() const {
                 return this->Get() & 0x000F;
             }
+
+            ALWAYS_INLINE constexpr Opcode &Nibble(const std::uint8_t nibble) {
+                this->Set((this->Get() & 0xFFF0) | nibble);
+
+                return *this;
+            }
+
+            [[nodiscard]]
+            ALWAYS_INLINE constexpr std::uint8_t TopNibble() const {
+                return (this->Get() & 0xF000) >> 12;
+            }
+
+            ALWAYS_INLINE constexpr Opcode &TopNibble(const std::uint8_t nibble) {
+                this->Set((this->Get() & 0x0FFF) | (nibble << 12));
+
+                return *this;
+            }
     };
 
     static_assert(sizeof(Opcode) == sizeof(RawOpcode));
+    static_assert(
+        Opcode()
+            .TopNibble(0xC)
+            .X(0xA)
+            .Y(0xF)
+            .Nibble(0xE)
+            .Get() == 0xCAFE
+    );
 
     using PCAdvance = std::int32_t;
 
     template<typename T>
-    concept Instruction = requires(Chip8 &ch8, Opcode op, DisassembleOutputIterator out) {
+    concept AssemblyData = std::same_as<T, std::optional<std::uint8_t>> || std::same_as<T, std::optional<Opcode>>;
+
+    template<typename T>
+    concept Instruction = requires(Chip8 &ch8, Opcode op, DisassembleOutputIterator out, const Assembler &asmbl, const std::string_view ins) {
         { T::Compare(op) }          -> std::same_as<bool>;
         { T::Execute(ch8, op) }     -> std::same_as<PCAdvance>;
         { T::Disassemble(out, op) } -> std::same_as<DisassembleOutputIterator>;
+        { T::Assemble(asmbl, ins) } -> AssemblyData;
     };
+
+    template<typename T>
+    concept SpecialSizedInstruction = Instruction<T> && requires {
+        T::NameWithTrailingSpace;
+        T::Size;
+    } && std::same_as<std::remove_cvref_t<decltype(T::NameWithTrailingSpace)>, std::string_view> &&
+         std::same_as<std::remove_cvref_t<decltype(T::Size)>,                  Address>;
+
 
     template<Instruction Ins, typename... Ts>
     class InstructionHandler {
@@ -69,15 +140,45 @@ namespace tsh {
             }
 
             [[nodiscard]]
-            static std::optional<DisassembleOutputIterator> Disassemble(DisassembleOutputIterator out, const std::size_t offset, const Opcode op) {
+            static std::optional<DisassembleOutputIterator> Disassemble(DisassembleOutputIterator out, const Address address, const Opcode op) {
                 if (Ins::Compare(op)) {
-                    out = fmt::format_to(out, "{:04X}: ({:04X}) -> ", offset, op.Get());
+                    out = fmt::format_to(out, "{:04X}: ({:04X}) -> ", address, op.Get());
                     out = Ins::Disassemble(out, op);
 
                     return fmt::format_to(out, "\n");
                 }
 
-                return InstructionHandler<Ts...>::Disassemble(out, offset, op);
+                return InstructionHandler<Ts...>::Disassemble(out, address, op);
+            }
+
+            [[nodiscard]]
+            static std::optional<std::vector<std::byte>> Assemble(const Assembler &asmbl, const std::string_view ins) {
+                const auto data = Ins::Assemble(asmbl, ins);
+                if (data.has_value()) {
+                    if constexpr (std::same_as<std::remove_cvref_t<decltype(*data)>, Opcode>) {
+                        return std::vector{
+                            static_cast<std::byte>(data->Get() >> 8),
+                            static_cast<std::byte>(data->Get() & 0xFF),
+                        };
+                    } else {
+                        /* Only other option is single uint8_t. */
+
+                        return std::vector{static_cast<std::byte>(*data)};
+                    }
+                }
+
+                return InstructionHandler<Ts...>::Assemble(asmbl, ins);
+            }
+
+            [[nodiscard]]
+            static constexpr Address Size(const std::string_view ins) {
+                if constexpr (SpecialSizedInstruction<Ins>) {
+                    if (Ins::NameWithTrailingSpace == ins.substr(0, Ins::NameWithTrailingSpace.size())) {
+                        return Ins::Size;
+                    }
+                }
+
+                return InstructionHandler<Ts...>::Size(ins);
             }
     };
 
@@ -95,15 +196,45 @@ namespace tsh {
             }
 
             [[nodiscard]]
-            static std::optional<DisassembleOutputIterator> Disassemble(DisassembleOutputIterator out, const std::size_t offset, const Opcode op) {
+            static std::optional<DisassembleOutputIterator> Disassemble(DisassembleOutputIterator out, const Address address, const Opcode op) {
                 if (Ins::Compare(op)) {
-                    out = fmt::format_to(out, "{:04X}: ({:04X}) -> ", offset, op.Get());
+                    out = fmt::format_to(out, "{:04X}: ({:04X}) -> ", address, op.Get());
                     out = Ins::Disassemble(out, op);
 
                     return fmt::format_to(out, "\n");
                 }
 
                 return {};
+            }
+
+            [[nodiscard]]
+            static std::optional<std::vector<std::byte>> Assemble(const Assembler &asmbl, const std::string_view ins) {
+                const auto data = Ins::Assemble(asmbl, ins);
+                if (data.has_value()) {
+                    if constexpr (std::same_as<std::remove_cvref_t<decltype(*data)>, Opcode>) {
+                        return std::vector{
+                            static_cast<std::byte>(data->Get() >> 8),
+                            static_cast<std::byte>(data->Get() & 0xFF),
+                        };
+                    } else {
+                        /* Only other option is single uint8_t. */
+
+                        return std::vector{static_cast<std::byte>(*data)};
+                    }
+                }
+
+                return {};
+            }
+
+            [[nodiscard]]
+            static constexpr Address Size(const std::string_view ins) {
+                if constexpr (SpecialSizedInstruction<Ins>) {
+                    if (Ins::NameWithTrailingSpace == ins.substr(0, Ins::NameWithTrailingSpace.size())) {
+                        return Ins::Size;
+                    }
+                }
+
+                return sizeof(Opcode);
             }
     };
 
@@ -112,13 +243,15 @@ namespace tsh {
             public:                                                                                                 \
                 static constexpr auto Pattern = NibblePattern(pattern);                                             \
                 [[nodiscard]]                                                                                       \
-                static constexpr bool Compare(const Opcode op) {                                                    \
+                ALWAYS_INLINE static constexpr bool Compare(const Opcode op) {                                      \
                     return Pattern.matches(op.Get());                                                               \
                 }                                                                                                   \
                 [[nodiscard]]                                                                                       \
                 static PCAdvance Execute(Chip8 &ch8, const Opcode op);                                              \
                 [[nodiscard]]                                                                                       \
                 static DisassembleOutputIterator Disassemble(const DisassembleOutputIterator out, const Opcode op); \
+                [[nodiscard]]                                                                                       \
+                static std::optional<Opcode> Assemble(const Assembler &asmbl, const std::string_view ins);          \
         }
 
     INSTRUCTION_DECLARE(CLS,          "00E0");
@@ -157,5 +290,34 @@ namespace tsh {
     INSTRUCTION_DECLARE(LD_V_DEREF_I, "Fx65");
 
     #undef INSTRUCTION_DECLARE
+
+    #define ASM_ONLY_INSTRUCTION_DECLARE(name, size, ins_name)                                                                     \
+        class name {                                                                                                               \
+            public:                                                                                                                \
+                static constexpr std::string_view NameWithTrailingSpace = ins_name " ";                                            \
+                static constexpr Address          Size                  = size;                                                    \
+                [[nodiscard]]                                                                                                      \
+                ALWAYS_INLINE static constexpr bool Compare(const Opcode op) {                                                     \
+                    UNUSED(op);                                                                                                    \
+                    return false;                                                                                                  \
+                }                                                                                                                  \
+                [[nodiscard]]                                                                                                      \
+                ALWAYS_INLINE static PCAdvance Execute(Chip8 &ch8, const Opcode op) {                                              \
+                    UNUSED(ch8, op);                                                                                               \
+                    return 0;                                                                                                      \
+                }                                                                                                                  \
+                [[nodiscard]]                                                                                                      \
+                ALWAYS_INLINE static DisassembleOutputIterator Disassemble(const DisassembleOutputIterator out, const Opcode op) { \
+                    UNUSED(op);                                                                                                    \
+                    return out;                                                                                                    \
+                }                                                                                                                  \
+                [[nodiscard]]                                                                                                      \
+                static std::optional<std::uint8_t> Assemble(const Assembler &asmbl, const std::string_view ins);                   \
+        }
+
+    ASM_ONLY_INSTRUCTION_DECLARE(SPRITE, 1, ".sprite");
+    ASM_ONLY_INSTRUCTION_DECLARE(BYTE,   1, ".byte");
+
+    #undef ASM_ONLY_INSTRUCTION_DECLARE
 
 }

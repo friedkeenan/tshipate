@@ -18,6 +18,11 @@ namespace tsh {
             }
 
             [[nodiscard]]
+            ALWAYS_INLINE constexpr Address OffsetToAbsolute(const Address offset) const {
+                return offset + this->start;
+            }
+
+            [[nodiscard]]
             constexpr std::size_t Size() const {
                 return end - start;
             }
@@ -305,7 +310,7 @@ namespace tsh {
 
             static constexpr auto FrameDuration = std::chrono::duration<double>(1.0 / 60);
 
-            using Handler = InstructionHandler<
+            using Instructions = InstructionHandler<
                 CLS,
                 RET,
                 JP_Addr,
@@ -339,7 +344,10 @@ namespace tsh {
                 LD_F_V,
                 LD_B_V,
                 LD_DEREF_I_V,
-                LD_V_DEREF_I
+                LD_V_DEREF_I,
+
+                SPRITE,
+                BYTE
             >;
 
             std::array<std::byte, TotalSpace.Size()> memory = {};

@@ -91,7 +91,24 @@ namespace tsh::util {
     requires std::same_as<Value, typename FirstEntry::second_type>
     Map(Value, FirstEntry, Entries...) -> Map<typename FirstEntry::first_type, Value, sizeof...(Entries) + 1>;
 
-    /* From Atmosphere */
+    template<std::integral T>
+    constexpr T pow(const T base, const std::size_t power) {
+        if (base == 0) {
+            return 0;
+        }
+
+        if (power == 0) {
+            return 1;
+        }
+
+        return base * pow(base, power - 1);
+    }
+
+    std::optional<std::vector<std::string_view>> WildcardCapture(const std::string_view pattern, const std::string_view str);
+
+    bool WriteToFile(const std::string &path, const std::span<const std::byte> data);
+
+    /* From Atmosphere, which is from another person. */
     template<class F>
     class ScopeGuard {
         NON_COPYABLE(ScopeGuard);

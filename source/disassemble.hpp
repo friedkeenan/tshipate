@@ -12,9 +12,15 @@ namespace tsh {
         NON_MOVEABLE(Disassembler);
 
         public:
-            using Handler = Chip8::Handler;
-
             std::array<std::byte, Chip8::ProgramSpace.Size()> raw_program;
+
+            ALWAYS_INLINE static constexpr Address ProgramAddress(const Address offset) {
+                return Chip8::ProgramSpace.OffsetToAbsolute(offset);
+            }
+
+            ALWAYS_INLINE static DisassembleOutputIterator DisassembleByte(const DisassembleOutputIterator out, const Address address, const std::byte byte) {
+                return fmt::format_to(out, "{0:04X}: ({1:02X})   -> .byte 0x{1:02X}\n", address, byte);
+            }
 
             ALWAYS_INLINE constexpr Disassembler() = default;
 
@@ -22,14 +28,6 @@ namespace tsh {
             [[nodiscard]]
             ALWAYS_INLINE constexpr std::optional<std::size_t> LoadProgram(Args &&... args) {
                 return Chip8::LoadProgramIntoBuffer(this->raw_program.begin(), std::forward<Args>(args)...);
-            }
-
-            ALWAYS_INLINE static constexpr std::size_t ProgramOffset(const std::size_t offset) {
-                return offset + Chip8::ProgramSpace.start;
-            }
-
-            ALWAYS_INLINE static DisassembleOutputIterator DisassembleByte(const DisassembleOutputIterator out, const std::size_t offset, const std::byte byte) {
-                return fmt::format_to(out, "{0:04X}: ({1:02X})   -> .byte 0x{1:02X}\n", offset, byte);
             }
 
             template<typename... Args>
@@ -45,22 +43,21 @@ namespace tsh {
                 std::string disassembly;
                 auto inserter = std::back_inserter(disassembly);
 
-                for (std::size_t i = 0; i < program.size(); i += sizeof(Opcode)) {
-                    if (i + sizeof(Opcode) - 1 < program.size()) {
-                        const auto opcode_data = program.subspan(i, sizeof(Opcode));
-                        const auto op          = Opcode(Chip8::ReadRawOpcodeFromBuffer(opcode_data));
+                for (Address i = 0; i < program.size(); i += sizeof(Opcode)) {
+                    const auto byte_data = std::span(program.data() + i, std::min(sizeof(Opcode), program.size() - i));
+                    if (byte_data.size() == sizeof(Opcode)) {
+                        const auto op = Opcode(Chip8::ReadRawOpcodeFromBuffer(byte_data));
 
-                        const auto new_it = Handler::Disassemble(inserter, ProgramOffset(i), op);
-                        if (!new_it.has_value()) {
-                            for (const auto &&[offset, byte] : util::enumerate(opcode_data)) {
-                                inserter = DisassembleByte(inserter, ProgramOffset(offset + i), byte);
-                            }
+                        /* If new_it has no value, move onto disassembling bytes. */
+                        const auto new_it = Chip8::Instructions::Disassemble(inserter, ProgramAddress(i), op);
+                        if (new_it.has_value()) {
+                            inserter = *new_it;
+                            continue;
                         }
-                    } else {
-                        const auto data = program.subspan(i);
-                        for (const auto &&[offset, byte] : util::enumerate(data)) {
-                            inserter = DisassembleByte(inserter, ProgramOffset(offset + i), byte);
-                        }
+                    }
+
+                    for (const auto &&[offset, byte] : util::enumerate(byte_data)) {
+                        inserter = DisassembleByte(inserter, ProgramAddress(offset + i), byte);
                     }
                 }
 

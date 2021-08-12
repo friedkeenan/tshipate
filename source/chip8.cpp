@@ -56,9 +56,9 @@ namespace tsh {
     bool Chip8::Tick() {
         const auto op = Opcode(this->ReadRawOpcode());
 
-        const auto advance = Handler::Execute(*this, op);
+        const auto advance = Instructions::Execute(*this, op);
         if (!advance.has_value()) {
-            std::printf("Unhandled opcode: %04X\n", op.Get());
+            fmt::print("Unhandled opcode: {:04X}\n", op.Get());
 
             return false;
         }

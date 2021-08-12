@@ -13,6 +13,7 @@
 #include <span>
 #include <string_view>
 #include <string>
+#include <unordered_map>
 #include <stack>
 #include <utility>
 #include <algorithm>
