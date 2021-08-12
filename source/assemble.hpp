@@ -22,6 +22,8 @@ namespace tsh {
             template<std::integral T>
             [[nodiscard]]
             static constexpr std::optional<T> ToNumber(std::string_view str) {
+                constexpr auto MaxNumber = std::numeric_limits<T>::max();
+
                 const auto base = [&]() {
                     if (str.starts_with("0x")) {
                         return std::size_t{16};
@@ -45,11 +47,21 @@ namespace tsh {
                 const char upper_char = std::min(static_cast<char>('0' + base), '9');
 
                 T parsed = {};
+
+                /* Macro to protect from overflowing. */
+                #define SAFE_ADD(to_add) ({             \
+                    const T _to_add = (to_add);      \
+                    if (MaxNumber - _to_add < parsed) { \
+                        return {};                      \
+                    }                                   \
+                    parsed += _to_add;                  \
+                })
+
                 for (const auto &&[i, c] : util::enumerate(str)) {
                     const auto place = util::pow(base, str.size() - i - 1);
 
                     if (c >= '0' && c <= upper_char) {
-                        parsed += place * ((c - '0') + 0);
+                        SAFE_ADD(place * ((c - '0') + 0));
                         continue;
                     }
 
@@ -58,17 +70,19 @@ namespace tsh {
                     }
 
                     if (c >= 'a' && c <= 'f') {
-                        parsed += place * ((c - 'a') + 0xa);
+                        SAFE_ADD(place * ((c - 'a') + 0xa));
                         continue;
                     }
 
                     if (c >= 'A' && c <= 'F') {
-                        parsed += place * ((c - 'A') + 0xA);
+                        SAFE_ADD(place * ((c - 'A') + 0xA));
                         continue;
                     }
 
                     return {};
                 }
+
+                #undef SAFE_ADD
 
                 return parsed;
             }
