@@ -50,7 +50,7 @@ namespace tsh {
 
                 /* Macro to protect from overflowing. */
                 #define SAFE_ADD(to_add) ({             \
-                    const T _to_add = (to_add);      \
+                    const T _to_add = (to_add);         \
                     if (MaxNumber - _to_add < parsed) { \
                         return {};                      \
                     }                                   \
