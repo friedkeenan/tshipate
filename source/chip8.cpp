@@ -65,6 +65,8 @@ namespace tsh {
 
         this->PC.Increment(*advance * sizeof(Opcode));
 
+        std::this_thread::sleep_for(InstructionDuration);
+
         return true;
     }
 

@@ -308,7 +308,8 @@ namespace tsh {
 
             static_assert(DigitSpace.end <= ProgramSpace.start);
 
-            static constexpr auto FrameDuration = std::chrono::duration<double>(1.0 / 60);
+            static constexpr auto FrameDuration       = std::chrono::duration<double>(1.0 / 60);
+            static constexpr auto InstructionDuration = FrameDuration / 1000;
 
             using Instructions = InstructionHandler<
                 CLS,
