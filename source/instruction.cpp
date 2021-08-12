@@ -1,6 +1,7 @@
 #include "common.hpp"
-#include "util.hpp"
 #include "instruction.hpp"
+#include "util.hpp"
+#include "digits.hpp"
 #include "chip8.hpp"
 #include "assemble.hpp"
 
@@ -886,12 +887,16 @@ namespace tsh {
     }
 
     ASM_ONLY_INSTRUCTION_ASSEMBLE(SPRITE) {
-        const auto captures   = MATCH(".sprite \" * \"");
-        const auto sprite_str = captures[0];
+        static constexpr auto Padding = Digit::Padding;
 
-        if (sprite_str.size() > BITSIZEOF(std::byte)) {
+        const auto captures   = MATCH(".sprite \"*\"");
+              auto sprite_str = captures[0];
+
+        if (sprite_str.size() > BITSIZEOF(std::byte) + 2 * Padding) {
             return {};
         }
+
+        sprite_str = sprite_str.substr(Padding, sprite_str.size() - 2 * Padding);
 
         std::uint8_t sprite_row = {};
         for (const auto &&[i, c] : util::enumerate(sprite_str)) {
